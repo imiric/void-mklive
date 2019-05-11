@@ -99,3 +99,25 @@ masterdir-%:
 	$(SUDO) docker build --build-arg REPOSITORY=$(XBPS_REPOSITORY) --build-arg ARCH=$* -t voidlinux/masterdir-$*:$(DATECODE) .
 
 .PHONY: clean dist rootfs-all-print rootfs-all platformfs-all-print platformfs-all pxe-all-print pxe-all masterdir-all-print masterdir-all masterdir-push-all
+
+LIVE_PACKAGES := acpi cryptsetup curl dialog elinks git glances gnupg2 \
+  gnupg2-scdaemon grub htop lm_sensors lvm2 mdadm par2cmdline parted pcsc-ccid \
+  pcsclite pixz rsync terminus-font tmux vim wifi-firmware wget xtools
+
+.PHONY: rootfs
+rootfs:
+	mkdir -p ./rootfs/{etc/runit/runsvdir/default,root,usr/libexec/dhcpcd-hooks}
+	$(SUDO) rsync -avr /etc/wpa_supplicant ./rootfs/etc/
+	ln -sfn /etc/sv/pcscd ./rootfs/etc/runit/runsvdir/default/pcscd
+	ln -sfn /usr/share/dhcpcd/hooks/10-wpa_supplicant ./rootfs/usr/libexec/dhcpcd-hooks/10-wpa_supplicant
+	ln -sfn /etc/sv/dhcpcd ./rootfs/etc/runit/runsvdir/default/
+	cp $(HOME)/.files/tmux/.tmux.conf ./rootfs/root/
+	test -d ./rootfs/root/.tmux-themepack || git clone https://github.com/jimeh/tmux-themepack ./rootfs/root/.tmux-themepack
+	gpg2 --armor --export imiric > ./rootfs/root/imiric.gpg.pub
+	echo -e 'HARDWARECLOCK="localtime"\nTIMEZONE="Europe/Amsterdam"\nKEYMAP="us"\nFONT="ter-128b"' > ./rootfs/etc/rc.conf
+	rsync -ar $(HOME)/Projects/void-luks-lvm-install/ ./rootfs/root/luks-lvm-install
+
+.PHONY: live
+live: rootfs
+	$(SUDO) ./mklive.sh -S 2000 -C 'modprobe.blacklist=nouveau acpi_osi="!Windows 2015"' \
+		-p "$(LIVE_PACKAGES)" -I rootfs -r https://alpha.de.repo.voidlinux.org/current

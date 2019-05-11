@@ -5,6 +5,7 @@
 *.raw
 *.tar.gz
 *.box
+rootfs/
 xbps-cache
 xbps-cachedir*
 stamps*
